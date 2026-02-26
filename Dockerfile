@@ -1,31 +1,56 @@
-# Use official Node.js LTS image based on Red Hat UBI (Universal Base Image)
-FROM registry.access.redhat.com/ubi8/nodejs-18:latest
+# Production Dockerfile for Gadget Store E-commerce Application
+# Optimized for Docker Hub deployment
 
-# Set working directory
-WORKDIR /opt/app-root/src
+# Stage 1: Build dependencies
+FROM node:18-alpine AS builder
+
+WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install production dependencies only
+RUN npm install --production --no-optional && \
+    npm cache clean --force
+
+# Stage 2: Production image
+FROM node:18-alpine
+
+# Install dumb-init for proper signal handling
+RUN apk add --no-cache dumb-init
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+WORKDIR /app
+
+# Copy dependencies from builder stage
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 
 # Copy application files
-COPY . .
+COPY --chown=nodejs:nodejs package*.json ./
+COPY --chown=nodejs:nodejs server.js ./
+COPY --chown=nodejs:nodejs setup-database.js ./
+COPY --chown=nodejs:nodejs database ./database
+COPY --chown=nodejs:nodejs public ./public
 
-# Create necessary directories
-RUN mkdir -p database public
+# Switch to non-root user
+USER nodejs
 
-# Set environment variables
+# Environment variables
 ENV NODE_ENV=production \
     PORT=8080
 
-# Expose port (OpenShift uses 8080 by default)
+# Expose application port
 EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
     CMD node -e "require('http').get('http://localhost:8080/api/products', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Run the application
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start the application
 CMD ["node", "server.js"]
