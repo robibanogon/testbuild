@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gadget Store - Home</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <h1>🛒 Gadget Store</h1>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="/" class="active">Home</a></li>
+                <li><a href="/products">Products</a></li>
+                <li><a href="/cart" class="cart-link">
+                    Cart <span class="cart-count" id="cartCount">0</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <header class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h2>Welcome to Gadget Store</h2>
+                <p>Discover the latest gadgets and technology at unbeatable prices</p>
+                <a href="/products" class="btn btn-primary">Shop Now</a>
+            </div>
+        </div>
+    </header>
+
+    <section class="categories">
+        <div class="container">
+            <h2 class="section-title">Shop by Category</h2>
+            <div class="category-grid" id="categoryGrid">
+                <!-- Categories will be loaded here -->
+            </div>
+        </div>
+    </section>
+
+    <section class="featured-products">
+        <div class="container">
+            <h2 class="section-title">Featured Products</h2>
+            <div class="product-grid" id="featuredProducts">
+                <!-- Featured products will be loaded here -->
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 Gadget Store. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="app.js"></script>
+    <script>
+        // Load categories
+        async function loadCategories() {
+            try {
+                const response = await fetch('/api/categories');
+                const categories = await response.json();
+                
+                const categoryGrid = document.getElementById('categoryGrid');
+                categoryGrid.innerHTML = categories.map(category => `
+                    <div class="category-card">
+                        <h3>${category.name}</h3>
+                        <p>${category.description}</p>
+                        <a href="/products?category=${category.id}" class="btn btn-secondary">Browse</a>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading categories:', error);
+            }
+        }
+
+        // Load featured products
+        async function loadFeaturedProducts() {
+            try {
+                const response = await fetch('/api/products');
+                const products = await response.json();
+                
+                // Show first 6 products
+                const featured = products.slice(0, 6);
+                
+                const productGrid = document.getElementById('featuredProducts');
+                productGrid.innerHTML = featured.map(product => `
+                    <div class="product-card">
+                        <img src="${product.image_url}" alt="${product.name}">
+                        <div class="product-info">
+                            <h3>${product.name}</h3>
+                            <p class="product-price">$${parseFloat(product.price).toFixed(2)}</p>
+                            <p class="product-stock">${product.stock_quantity > 0 ? 'In Stock' : 'Out of Stock'}</p>
+                            <button class="btn btn-primary" onclick="addToCart(${product.id}, '${product.name}', ${product.price})" ${product.stock_quantity === 0 ? 'disabled' : ''}>
+                                Add to Cart
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading products:', error);
+            }
+        }
+
+        // Initialize
+        loadCategories();
+        loadFeaturedProducts();
+        updateCartCount();
+    </script>
+</body>
+</html>

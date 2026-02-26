@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout - Gadget Store</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <h1>🛒 Gadget Store</h1>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="/">Home</a></li>
+                <li><a href="/products">Products</a></li>
+                <li><a href="/cart" class="cart-link">
+                    Cart <span class="cart-count" id="cartCount">0</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="checkout-page">
+            <h2>Checkout</h2>
+            
+            <div class="checkout-content">
+                <div class="checkout-form">
+                    <h3>Shipping Information</h3>
+                    <form id="checkoutForm">
+                        <div class="form-group">
+                            <label for="customerName">Full Name *</label>
+                            <input type="text" id="customerName" name="customerName" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="customerEmail">Email *</label>
+                            <input type="email" id="customerEmail" name="customerEmail" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="customerPhone">Phone Number</label>
+                            <input type="tel" id="customerPhone" name="customerPhone">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="shippingAddress">Shipping Address *</label>
+                            <textarea id="shippingAddress" name="shippingAddress" rows="4" required></textarea>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary btn-block">Place Order</button>
+                    </form>
+                </div>
+                
+                <div class="order-summary">
+                    <h3>Order Summary</h3>
+                    <div id="orderItems">
+                        <!-- Order items will be loaded here -->
+                    </div>
+                    <div class="summary-totals">
+                        <div class="summary-row">
+                            <span>Subtotal:</span>
+                            <span id="subtotal">$0.00</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Tax (10%):</span>
+                            <span id="tax">$0.00</span>
+                        </div>
+                        <div class="summary-row total">
+                            <span>Total:</span>
+                            <span id="total">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="successModal" class="modal">
+        <div class="modal-content">
+            <h2>✓ Order Placed Successfully!</h2>
+            <p>Your order has been received and is being processed.</p>
+            <p>Order ID: <strong id="orderId"></strong></p>
+            <p>A confirmation email will be sent to your email address.</p>
+            <button class="btn btn-primary" onclick="window.location.href='/'">Continue Shopping</button>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 Gadget Store. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="app.js"></script>
+    <script>
+        function displayOrderSummary() {
+            const cart = getCart();
+            const orderItems = document.getElementById('orderItems');
+            
+            if (cart.length === 0) {
+                window.location.href = '/cart';
+                return;
+            }
+            
+            orderItems.innerHTML = cart.map(item => `
+                <div class="order-item">
+                    <span>${item.name} x ${item.quantity}</span>
+                    <span>$${(item.price * item.quantity).toFixed(2)}</span>
+                </div>
+            `).join('');
+            
+            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const tax = subtotal * 0.10;
+            const total = subtotal + tax;
+            
+            document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
+            document.getElementById('tax').textContent = `$${tax.toFixed(2)}`;
+            document.getElementById('total').textContent = `$${total.toFixed(2)}`;
+        }
+        
+        document.getElementById('checkoutForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const cart = getCart();
+            if (cart.length === 0) {
+                alert('Your cart is empty!');
+                return;
+            }
+            
+            const formData = {
+                customer_name: document.getElementById('customerName').value,
+                customer_email: document.getElementById('customerEmail').value,
+                customer_phone: document.getElementById('customerPhone').value,
+                shipping_address: document.getElementById('shippingAddress').value,
+                items: cart.map(item => ({
+                    product_id: item.id,
+                    quantity: item.quantity
+                }))
+            };
+            
+            try {
+                const response = await fetch('/api/orders', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    // Clear cart
+                    localStorage.removeItem('cart');
+                    
+                    // Show success modal
+                    document.getElementById('orderId').textContent = result.order.id;
+                    document.getElementById('successModal').style.display = 'flex';
+                } else {
+                    alert('Error: ' + (result.error || 'Failed to place order'));
+                }
+            } catch (error) {
+                console.error('Error placing order:', error);
+                alert('Failed to place order. Please try again.');
+            }
+        });
+        
+        // Initialize
+        displayOrderSummary();
+        updateCartCount();
+    </script>
+</body>
+</html>

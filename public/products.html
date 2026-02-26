@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Products - Gadget Store</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <h1>🛒 Gadget Store</h1>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="/">Home</a></li>
+                <li><a href="/products" class="active">Products</a></li>
+                <li><a href="/cart" class="cart-link">
+                    Cart <span class="cart-count" id="cartCount">0</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="products-page">
+            <aside class="sidebar">
+                <h3>Categories</h3>
+                <div class="category-filter" id="categoryFilter">
+                    <button class="filter-btn active" data-category="">All Products</button>
+                    <!-- Categories will be loaded here -->
+                </div>
+            </aside>
+
+            <main class="products-main">
+                <div class="products-header">
+                    <h2>Our Products</h2>
+                    <p id="productCount">Loading products...</p>
+                </div>
+                <div class="product-grid" id="productGrid">
+                    <!-- Products will be loaded here -->
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 Gadget Store. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="app.js"></script>
+    <script>
+        let allProducts = [];
+        let currentCategory = '';
+
+        // Get category from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const categoryParam = urlParams.get('category');
+        if (categoryParam) {
+            currentCategory = categoryParam;
+        }
+
+        // Load categories for filter
+        async function loadCategories() {
+            try {
+                const response = await fetch('/api/categories');
+                const categories = await response.json();
+                
+                const categoryFilter = document.getElementById('categoryFilter');
+                const categoryButtons = categories.map(category => `
+                    <button class="filter-btn ${currentCategory == category.id ? 'active' : ''}" 
+                            data-category="${category.id}">
+                        ${category.name}
+                    </button>
+                `).join('');
+                
+                categoryFilter.innerHTML += categoryButtons;
+                
+                // Add click handlers
+                document.querySelectorAll('.filter-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                        this.classList.add('active');
+                        currentCategory = this.dataset.category;
+                        filterProducts();
+                    });
+                });
+            } catch (error) {
+                console.error('Error loading categories:', error);
+            }
+        }
+
+        // Load all products
+        async function loadProducts() {
+            try {
+                const response = await fetch('/api/products');
+                allProducts = await response.json();
+                filterProducts();
+            } catch (error) {
+                console.error('Error loading products:', error);
+                document.getElementById('productGrid').innerHTML = 
+                    '<p class="error">Failed to load products. Please try again later.</p>';
+            }
+        }
+
+        // Filter and display products
+        function filterProducts() {
+            let filtered = allProducts;
+            
+            if (currentCategory) {
+                filtered = allProducts.filter(p => p.category_id == currentCategory);
+            }
+            
+            const productGrid = document.getElementById('productGrid');
+            const productCount = document.getElementById('productCount');
+            
+            productCount.textContent = `Showing ${filtered.length} product${filtered.length !== 1 ? 's' : ''}`;
+            
+            if (filtered.length === 0) {
+                productGrid.innerHTML = '<p class="no-products">No products found in this category.</p>';
+                return;
+            }
+            
+            productGrid.innerHTML = filtered.map(product => `
+                <div class="product-card">
+                    <img src="${product.image_url}" alt="${product.name}">
+                    <div class="product-info">
+                        <span class="product-category">${product.category_name}</span>
+                        <h3>${product.name}</h3>
+                        <p class="product-description">${product.description || ''}</p>
+                        <p class="product-price">$${parseFloat(product.price).toFixed(2)}</p>
+                        <p class="product-stock ${product.stock_quantity > 0 ? 'in-stock' : 'out-of-stock'}">
+                            ${product.stock_quantity > 0 ? `${product.stock_quantity} in stock` : 'Out of Stock'}
+                        </p>
+                        <button class="btn btn-primary" 
+                                onclick="addToCart(${product.id}, '${product.name}', ${product.price})" 
+                                ${product.stock_quantity === 0 ? 'disabled' : ''}>
+                            Add to Cart
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Initialize
+        loadCategories();
+        loadProducts();
+        updateCartCount();
+    </script>
+</body>
+</html>

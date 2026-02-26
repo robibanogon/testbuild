@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: gadget-store-db
+    environment:
+      POSTGRES_DB: gadget_store
+      POSTGRES_USER: gadget_user
+      POSTGRES_PASSWORD: secure_password_change_me
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gadget_user -d gadget_store"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gadget-network
+
+  # Gadget Store Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gadget-store-app
+    ports:
+      - "8080:8080"
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: gadget_store
+      DB_USER: gadget_user
+      DB_PASSWORD: secure_password_change_me
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8080/api/products', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 40s
+    networks:
+      - gadget-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  gadget-network:
+    driver: bridge
+
+# Made with Bob
